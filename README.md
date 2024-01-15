@@ -2,7 +2,7 @@
 
 ```sh
 export GOOS=linux
-export GOARCH=amd64 
+export GOARCH=amd64  # arm64
 
 go build -o bin/source ./cmd/source
 

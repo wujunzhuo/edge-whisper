@@ -15,7 +15,7 @@ import (
 	"edge-whisper/pkg"
 )
 
-var WHISPER_SERVER = "http://localhost:3000"
+var WHISPER_SERVER = "http://localhost:8000"
 
 func Handler(ctx serverless.Context) {
 	var input pkg.DataWhisper
