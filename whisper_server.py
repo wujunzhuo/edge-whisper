@@ -70,6 +70,9 @@ async def run_model(input_path: str, result_path: str) -> dict[str]:
 
     result = json.loads(content)
 
+    if len(result['transcription']) == 0:
+        return {'transcription': ''}
+
     return {
         'transcription': result['transcription'][0]['text'].strip(),
         'temperature': 0,
