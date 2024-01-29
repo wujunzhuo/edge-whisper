@@ -76,7 +76,10 @@ func Handler(ctx serverless.Context) {
 		return
 	}
 
-	fmt.Printf("transcription=[%s] language=%s\n", res.Transcription, res.Language)
+	fmt.Printf(
+		"transcription=[%s], temperature=%f, no_speech_prob=%f, language=%s\n",
+		res.Transcription, res.Temperature, res.NoSpeechProb, res.Language,
+	)
 
 	output := &pkg.DataSink{
 		ReqID:    input.ReqID,

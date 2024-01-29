@@ -47,6 +47,8 @@ async def run_model(input_path: str, result_path: str) -> dict[str]:
             result = transcribe(whisper_model, input_path, task='translate')
         return {
             'transcription': result['text'],
+            'temperature': result['segments'][0]['temperature'],
+            'no_speech_prob': result['segments'][0]['no_speech_prob'],
             'language': result['language'],
         }
 
@@ -70,6 +72,8 @@ async def run_model(input_path: str, result_path: str) -> dict[str]:
 
     return {
         'transcription': result['transcription'][0]['text'].strip(),
+        'temperature': 0,
+        'no_speech_prob': 0,
         'language': result['result']['language'],
     }
 

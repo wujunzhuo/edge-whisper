@@ -12,8 +12,10 @@ type DataWhisper struct {
 }
 
 type WhisperResponse struct {
-	Transcription string `json:"transcription"`
-	Language      string `json:"language"`
+	Transcription string  `json:"transcription"`
+	Temperature   float32 `json:"temperature"`
+	NoSpeechProb  float32 `json:"no_speech_prob"`
+	Language      string  `json:"language"`
 }
 
 type DataSink struct {
