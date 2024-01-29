@@ -25,10 +25,7 @@ func Handler(ctx serverless.Context) {
 		return
 	}
 
-	fmt.Printf(
-		"%s: transcription=[%s], temperature=%f, no_speech_prob=%f, language=%s\n",
-		data.ReqID, res.Transcription, res.Temperature, res.NoSpeechProb, res.Language,
-	)
+	fmt.Printf("%s: transcription=[%s], language=%s\n", data.ReqID, res.Transcription, res.Language)
 }
 
 func main() {

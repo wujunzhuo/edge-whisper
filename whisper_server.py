@@ -1,3 +1,5 @@
+import asyncio
+import json
 import os
 import tempfile
 import threading
@@ -13,36 +15,70 @@ from pydub import AudioSegment
 from whisper import load_model, transcribe
 
 
-WHISPER_MODEL = "base"
+WHISPER_MODEL = os.getenv('WHISPER_MODEL', 'base')
+WHISPERCPP_BIN = os.getenv('WHISPERCPP_BIN', './whispercpp_main')
+WHISPERCPP_MODEL = os.getenv('WHISPERCPP_MODEL', './ggml-base-q5_1.bin')
 
 
 app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8000"],
+    allow_origins=['http://localhost:8000'],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=['*'],
+    allow_headers=['*'],
 )
 
 
-model = load_model(WHISPER_MODEL)
+if WHISPER_MODEL:
+    whisper_model = load_model(WHISPER_MODEL)
 
 lock = threading.Lock()
 
 
-@app.post("/transcribe")
+async def run_model(input_path: str, result_path: str) -> dict[str]:
+    if WHISPER_MODEL:
+        result = transcribe(whisper_model, input_path, task='translate')
+        return {
+            'transcription': result['text'],
+            'language': result['language'],
+        }
+
+    proc = await asyncio.create_subprocess_shell(
+        f'{WHISPERCPP_BIN} -m {WHISPERCPP_MODEL} -l auto \
+            -oj -of {result_path} {input_path}',
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE)
+    stdout, stderr = await proc.communicate()
+
+    print(f'whisper.cpp:\n{stdout.decode()}')
+
+    ret_code = proc.returncode or 0
+    if ret_code != 0:
+        raise RuntimeError(f'whisper.cpp [{ret_code}]:\n{stderr.decode()}')
+
+    async with aiofiles.open(result_path + '.json', 'r') as f:
+        content = await f.read()
+        result = json.loads(content)
+
+    return {
+        'transcription': result["transcription"][0]['text'],
+        'language': result["result"]['language'],
+    }
+
+
+@app.post('/transcribe')
 async def transcribe_audio(file: UploadFile = File(...)):
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
-            path = os.path.join(tmpdir, file.filename)
+            input_path = os.path.join(tmpdir, file.filename)
 
-            async with aiofiles.open(path, 'wb') as out_file:
+            async with aiofiles.open(input_path, 'wb') as f:
                 while content := await file.read(1024*30):
-                    await out_file.write(content)
+                    await f.write(content)
 
-            rate, audio = read_audio_file(path)
+            rate, audio = read_audio_file(input_path)
 
             aud = AudioSegment(
                 audio.tobytes(), frame_rate=rate,
@@ -54,23 +90,19 @@ async def transcribe_audio(file: UploadFile = File(...)):
                 silence_thresh=-45,
                 keep_silence=20)
             if not audio_chunks:
-                return {"transcription": ""}
+                return {'transcription': ''}
 
             with lock:
-                result = transcribe(model, path, task="translate")
+                result_path = os.path.join(tmpdir, 'result')
+                result = await run_model(input_path, result_path)
 
         print(result)
+        return result
 
-        return {
-            "transcription": result["text"],
-            "temperature": result["segments"][0]["temperature"],
-            "no_speech_prob": result["segments"][0]["no_speech_prob"],
-            "language": result["language"],
-        }
     except Exception as e:
         traceback.print_exc()
-        return JSONResponse(status_code=500, content={"message": str(e)})
+        return JSONResponse(status_code=500, content={'message': str(e)})
 
 
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+if __name__ == '__main__':
+    uvicorn.run(app, host='0.0.0.0', port=8000)
